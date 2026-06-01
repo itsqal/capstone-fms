@@ -20,7 +20,7 @@ class TruckFactory extends Factory
     {
         return [
             'id'=> (string) Str::uuid(),
-            'user_id' => User::factory(),
+            'user_id' => 22,
             'plate_number' => strtoupper(fake()->bothify('B #### ??')),
             'model' => fake()->randomElement([
                 'Hino Dutro',
