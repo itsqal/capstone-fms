@@ -2,103 +2,173 @@
 
 namespace App\Livewire\Dashboard;
 
-use Livewire\Component;
+use App\Models\Report;
 use App\Models\Shipment;
 use App\Models\Truck;
-use App\Models\Report;
+use Carbon\Carbon;
+use Livewire\Component;
 
 #[\Livewire\Attributes\Title('Dashboard')]
 class Index extends Component
 {
+    // ── Shipment KPI ──────────────────────────────────────────────
     public int $totalShipments;
-    public $shipmentPct;
+    public string $shipmentPct;
     public int $shipmentProgress;
-    public $chartData;
-    public $chartLabels;
+    public array $chartData;
+    public array $chartLabels;
 
+    // ── Truck KPI ─────────────────────────────────────────────────
     public int $truckInDelivery;
     public int $totalTrucks;
-    public $truckUtilitiy;
+    public string $truckUtility;
     public array $truckBars;
+    public int $truckAvailable;
+    public array $fleetChartData;
 
-    public $fleetChartData;
-    public $truckAvailable;
-
+    // ── Report KPI ────────────────────────────────────────────────
     public int $totalReport;
     public int $reportPct;
     public int $reportNote;
 
+    // ── Revenue KPI ───────────────────────────────────────────────
     public int $revenue;
     public int $revenueTarget;
     public float $revenueGrowth;
 
+    // ── Recent Activity ───────────────────────────────────────────
+    public $recentShipments;
+
+    // ─────────────────────────────────────────────────────────────
 
     public function mount(): void
     {
-        // Shipment Data
-        $this->totalShipments   = Shipment::whereMonth('created_at', now()->month())->count();
-        $lastMonth               = Shipment::whereMonth('created_at', now()->subMonth()->month)->count();
-        $pct                     = $lastMonth > 0 ? round((($this->totalShipments - $lastMonth) / $lastMonth) * 100) : 0;
-        $this->shipmentPct     = ($pct >= 0 ? '+' : '') . $pct . '%';
-        $this->shipmentProgress = min(100, round(($this->totalShipments / $lastMonth) * 100));
+        $this->loadShipmentMetrics();
+        $this->loadTruckMetrics();
+        $this->loadReportMetrics();
+        $this->loadRevenueMetrics();
+        $this->loadRecentShipments();
+    }
+
+    // ── Private Loaders ───────────────────────────────────────────
+
+    private function loadShipmentMetrics(): void
+    {
+        $currentMonth = Shipment::whereMonth('created_at', now()->month)->count();
+        $lastMonth    = Shipment::whereMonth('created_at', now()->subMonth()->month)->count();
+
+        $pct = $lastMonth > 0
+            ? round((($currentMonth - $lastMonth) / $lastMonth) * 100)
+            : 0;
+
+        $this->totalShipments   = $currentMonth;
+        $this->shipmentPct      = ($pct >= 0 ? '+' : '') . $pct . '%';
+        $this->shipmentProgress = $lastMonth > 0
+            ? min(100, (int) round(($currentMonth / $lastMonth) * 100))
+            : 0;
 
         $days = collect(range(6, 0))->map(fn ($i) => now()->subDays($i));
 
         $this->chartLabels = $days->map(fn ($d) => $d->translatedFormat('D'))->toArray();
 
-        $this->chartData = $days->map(fn ($d) =>
-            Shipment::whereDate('created_at', $d->toDateString())
-                    ->where('status', 'selesai')
-                    ->count()
+        $this->chartData = $days->map(
+            fn ($d) => Shipment::whereDate('created_at', $d->toDateString())
+                ->where('status', 'selesai')
+                ->count()
         )->toArray();
+    }
 
-        $this->totalTrucks   = Truck::count();
-        $this->truckInDelivery = Truck::where('current_status', 'dalam pengiriman')->count();
-        $utilPct           = $this->totalTrucks > 0 ? round(($this->truckInDelivery / $this->totalTrucks) * 100) : 0;
-        $this->truckUtility = $utilPct . '%';
+    private function loadTruckMetrics(): void
+    {
+        $total      = Truck::count();
+        $inDelivery = Truck::where('current_status', 'dalam pengiriman')->count();
+        $available  = Truck::where('current_status', 'tidak dalam pengiriman')->count();
 
-        $this->truckBars = Truck::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-        ->where('current_status', 'dalam pengiriman')
-        ->whereBetween('created_at', [now()->subDays(6)->startOfDay(), now()->endOfDay()])
-        ->groupBy('date')
-        ->orderBy('date')
-        ->pluck('total')
-        ->map(fn ($v) => min(100, round(($v / $this->totalTrucks) * 100)))
-        ->toArray();
+        $this->totalTrucks     = $total;
+        $this->truckInDelivery = $inDelivery;
+        $this->truckAvailable  = $available;
+        $this->truckUtility    = $total > 0
+            ? round(($inDelivery / $total) * 100) . '%'
+            : '0%';
 
-        $this->truckAvailable       = Truck::where('current_status', 'tidak dalam pengiriman')->count();
-        $this->fleetChartData       = [
-            $this->truckInDelivery,
-            $this->truckAvailable,
+        $rawBars = Truck::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->where('current_status', 'dalam pengiriman')
+            ->whereBetween('created_at', [now()->subDays(6)->startOfDay(), now()->endOfDay()])
+            ->groupBy('date')
+            ->orderBy('date')
+            ->pluck('total')
+            ->map(fn ($v) => $total > 0 ? min(100, (int) round(($v / $total) * 100)) : 0)
+            ->toArray();
 
-        ];
+        $this->truckBars = array_pad($rawBars, -7, 0);
 
-        // Pad to always have 7 entries if some days have no data
-        $this->truckBars = array_pad($this->truckBars, -7, 0);
+        $this->fleetChartData = [$inDelivery, $available];
+    }
 
-        $this->totalReport = Report::where('created_at', now()->today())->count();
-        $recentReports = Report::where('created_at', '>=', now()->subDays(7))->count();
-        $this->reportPct = $this->totalReport > 0
-            ? (int) round(($recentReports / $this->totalReport) * 100)
+    private function loadReportMetrics(): void
+    {
+        $todayCount    = Report::whereDate('created_at', today())->count();
+        $recentCount   = Report::where('created_at', '>=', now()->subDays(7))->count();
+
+        $this->totalReport = $todayCount;
+        $this->reportPct   = $todayCount > 0
+            ? (int) round(($recentCount / $todayCount) * 100)
             : 0;
-        $this->reportNote = Report::where('created_at', '>=', now()->subDay())->count();
+        $this->reportNote  = Report::where('created_at', '>=', now()->subDay())->count();
+    }
 
-        $this->revenue = (int) Shipment::where('status', 'selesai')->sum('delivery_order_price');
-        $this->revenueTarget = 300_000_000;
-
-        $previousRevenue = (int) Shipment::where('status', 'selesai')
-            ->whereBetween('completed_at', [now()->subDays(60), now()->subDays(30)])
+    private function loadRevenueMetrics(): void
+    {
+        $current = (int) Shipment::where('status', 'selesai')
+            ->whereYear('completed_at', now()->year)
             ->sum('delivery_order_price');
 
-        $this->revenueGrowth = $previousRevenue > 0
-            ? round((($this->revenue - $previousRevenue) / $previousRevenue) * 100, 2)
+        $previous = (int) Shipment::where('status', 'selesai')
+            ->whereYear('completed_at', now()->subYear()->year)
+            ->whereMonth('completed_at', '<=', now()->month)
+            ->sum('delivery_order_price');
+
+        $this->revenue       = $current;
+        $this->revenueTarget = 300_000_000;
+        $this->revenueGrowth = $previous > 0
+            ? round((($current - $previous) / $previous) * 100, 2)
             : 0.0;
     }
+
+    private function loadRecentShipments(): void
+    {
+        $this->recentShipments = Shipment::with('truck.drivers')
+            ->latest('created_at')
+            ->limit(4)
+            ->get();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    public function formatElapsedTime(string $timestamp): string
+    {
+        $diff  = Carbon::parse($timestamp)->diff(now());
+        $parts = [];
+
+        if ($diff->d > 0) {
+            $parts[] = $diff->d . ' Hari';
+        }
+        if ($diff->h > 0) {
+            $parts[] = $diff->h . ' Jam';
+        }
+        if ($diff->i > 0) {
+            $parts[] = $diff->i . ' Menit';
+        }
+
+        return $parts ? implode(' ', $parts) . ' lalu' : 'Baru saja';
+    }
+
+    // ── Render ────────────────────────────────────────────────────
 
     public function render()
     {
         return view('livewire.dashboard.index', [
-            'lastMonth' => Shipment::whereMonth('created_at', now()->subMonth()->month)->count()
+            'lastMonth' => Shipment::whereMonth('created_at', now()->subMonth()->month)->count(),
         ]);
     }
 }
