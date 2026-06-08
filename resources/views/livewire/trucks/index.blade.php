@@ -1,4 +1,5 @@
-<div x-data="{ sidebarOpen: false }"
+<div x-data="{ sidebarOpen: localStorage.getItem('sidebarOpen') === 'true' }"
+    x-init="$watch('sidebarOpen', value => localStorage.setItem('sidebarOpen', value))"
     x-on:toggle.window="sidebarOpen = !sidebarOpen"
     class="flex flex-col w-full translate-all duration-300"
     x-bind:class="sidebarOpen ? 'md:ml-[20%] md:w-[80%]' : 'ml-0'">

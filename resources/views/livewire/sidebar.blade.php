@@ -1,4 +1,6 @@
-<div x-data="{ open: false }" class="relative z-50">
+<div x-data="{ open: localStorage.getItem('sidebarOpen') === 'true' }" 
+    x-init="$watch('open', value => localStorage.setItem('sidebarOpen', value))"
+    class="relative z-50">
     <!-- Backdrop Overlay -->
     <div x-show="open" @click="$dispatch('toggle')"
         x-transition:enter="transition ease-out duration-300"
@@ -7,7 +9,7 @@
         x-transition:leave="transition ease-in duration-200"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
-        class="fixed inset-0 bg-slate-950/20 backdrop-blur-[2px] z-40">
+        class="fixed">
     </div>
 
     <!-- Sidebar -->
@@ -15,7 +17,7 @@
         x-transition:enter="transform transition ease-in-out duration-300" x-transition:enter-start="-translate-x-full"
         x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-300"
         x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
-        class="bg-white h-full fixed inset-y-0 left-0 flex flex-col justify-between transition-all duration-300 overflow-visible shadow-[8px_0_30px_rgba(0,0,0,0.04)] rounded-r-[32px] w-[280px] z-50">
+        class="bg-white h-full fixed inset-y-0 left-0 flex flex-col justify-between transition-all duration-300 overflow-visible shadow-[20px_0_30px_rgba(0,0,0,0.04)] rounded-r-[32px] w-[280px] z-50">
 
         <!-- Floating Close Button -->
         <button @click="$dispatch('toggle')"
