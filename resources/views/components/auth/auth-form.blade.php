@@ -10,20 +10,15 @@
     <link rel="icon" href="{{ asset('favlogo.ico')}}" type="image/x-icon">
 </head>
 
-<body class="min-h-screen">
-    <div class="min-h-screen flex flex-col md:flex-row">
-        <!-- Background Image (visible only on small screens) -->
-        <div class="fixed inset-0 block md:hidden bg-cover bg-center"
-            style="background-image: url('{{ asset('images/login-register-cover.png') }}');">
-            <div class="absolute inset-0 bg-black/50"></div>
-        </div>
+<body class="min-h-screen font-sans bg-[#F8FAFC]">
+    <div class="min-h-screen w-full flex items-center justify-center relative overflow-hidden p-4 sm:p-6 md:p-8">
+        <!-- Soft glowing gradient spheres in the background -->
+        <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#E0E7FF] opacity-60 blur-[120px] pointer-events-none"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#F3E8FF] opacity-70 blur-[120px] pointer-events-none"></div>
+        <div class="absolute top-[30%] right-[-10%] w-[35%] h-[35%] rounded-full bg-[#E0F2FE] opacity-50 blur-[100px] pointer-events-none"></div>
 
-        <!-- Left Side: Image (visible only on medium screens and above) -->
-        <div class="hidden md:block md:w-1/2 bg-cover bg-center"
-            style="background-image: url('{{ asset('images/login-register-cover.png') }}');"></div>
-
-        <!-- Form Container (centered, works for all screen sizes) -->
-        <div class="relative flex-1 md:w-1/2 flex items-center justify-center p-4 md:p-10">
+        <!-- Form Container -->
+        <div class="relative w-full max-w-[480px] z-10">
             {{ $slot }}
         </div>
     </div>
